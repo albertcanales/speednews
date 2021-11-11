@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# 
+WEBPAGE="https://www.theguardian.com/international"
+HEADERS_PATH="/tmp/speednews-headers"
+ARTICLE_PATH="/tmp/speednews-article"
+WPM=450
+
+function check_speedread {
+	if [ ! -L "$speednews_path/speedread" ] || [ ! -e "$speednews_path/speedread" ]; then
+		echo "ERROR: The speedread file is not found."
+		echo "Create a symlink from your speedread executable to the speednews folder."
+		exit 1
+	fi
+}
+
+# Recieves a header as a parameter
+function get_url_title() {
+	url=$(echo "$1" | cut -d" " -f 1)
+	title=$(echo "$1" | cut -d" " -f 2-)
+}
+
+function menu {
+	echo "Articles from $WEBPAGE"
+	i=1
+	while IFS= read -r -u3 header; do
+		get_url_title "$header"
+	    echo "    $i: $title"
+	    let i=i+1
+	done 3< $HEADERS_PATH
+	echo -n "Choose from the following articles: "
+	read option
+}
+
+speednews_path=$(dirname $(readlink -f $0))
+check_speedread
+
+echo "$WEBPAGE" | python "$speednews_path/getHeaders.py" > $HEADERS_PATH
+
+while true; do
+	menu
+	selected_header=$(cat $HEADERS_PATH | head -$option | tail -1)
+	get_url_title "$selected_header"
+
+	echo $url | python "$speednews_path/getBody.py" > $ARTICLE_PATH
+	echo "===================="
+	echo "Now reading: $title."
+	"$speednews_path/speedread" -w $WPM < $ARTICLE_PATH
+done
+
+
+
